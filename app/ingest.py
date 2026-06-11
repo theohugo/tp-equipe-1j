@@ -42,6 +42,8 @@ def extract_text(file_path: Path) -> str:
     if suffix in (".html", ".htm"):
         from selectolax.parser import HTMLParser
         tree = HTMLParser(file_path.read_text(encoding="utf-8"))
+        for tag in tree.css("script, style"):
+            tag.decompose()
         return tree.text(separator="\n")
 
     return ""
