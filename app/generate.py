@@ -38,23 +38,26 @@ def generate(query: str, chunks: list[dict]) -> dict:
     sources = list({c["source"] for c in chunks})
 
     if settings.llm_provider == "groq":
-        # TODO R3 : appel Groq
-        # from groq import Groq
-        # client = Groq(api_key=settings.groq_api_key)
-        # completion = client.chat.completions.create(
-        #     model=settings.llm_model,
-        #     messages=[
-        #         {"role": "system", "content": SYSTEM_PROMPT},
-        #         {"role": "user", "content": f"Contexte :\n{context}\n\nQuestion : {query}"},
-        #     ],
-        # )
-        # answer = completion.choices[0].message.content
-        # tokens = {"prompt": completion.usage.prompt_tokens, "completion": completion.usage.completion_tokens}
-        raise NotImplementedError("Groq generation — à compléter (R3)")
+        from groq import Groq
+        client = Groq(api_key=settings.groq_api_key)
+        completion = client.chat.completions.create(
+            model=settings.llm_model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"Contexte :\n{context}\n\nQuestion : {query}"},
+            ],
+        )
+        answer = completion.choices[0].message.content
+        tokens = {"prompt": completion.usage.prompt_tokens, "completion": completion.usage.completion_tokens}
 
     elif settings.llm_provider == "gemini":
-        # TODO R3 : appel Gemini
-        raise NotImplementedError("Gemini generation — à compléter (R3)")
+        import google.generativeai as genai
+        genai.configure(api_key=settings.gemini_api_key)
+        model = genai.GenerativeModel(settings.llm_model)
+        prompt = f"{SYSTEM_PROMPT}\n\nContexte :\n{context}\n\nQuestion : {query}"
+        response = model.generate_content(prompt)
+        answer = response.text
+        tokens = {"prompt": 0, "completion": 0}
 
     else:
         raise ValueError(f"LLM provider inconnu : {settings.llm_provider}")

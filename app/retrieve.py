@@ -44,16 +44,11 @@ def retrieve(query: str) -> tuple[list[dict], bool]:
     model = get_model()
     store = get_store()
 
-    # TODO R3 : vectoriser la requête
-    # query_vector = model.encode(query, normalize_embeddings=True).tolist()
+    query_vector = model.encode(query, normalize_embeddings=True).tolist()
 
-    # TODO R3 : rechercher dans Qdrant
-    # results = store.search(query_vector, top_k=settings.top_k)
+    results = store.search(query_vector, top_k=settings.top_k)
 
-    # TODO R3 : appliquer le seuil
-    # if not results or results[0]["score"] < settings.similarity_threshold:
-    #     return [], True
+    if not results or results[0]["score"] < settings.similarity_threshold:
+        return [], True
 
-    # return results, False
-
-    raise NotImplementedError("retrieve() — à compléter (R3)")
+    return results, False

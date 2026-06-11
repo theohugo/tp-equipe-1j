@@ -38,32 +38,29 @@ def ask(req: AskRequest):
     """
     start = time.perf_counter()
 
-    # TODO R3 : décommenter quand retrieve() est implémenté
-    # chunks, refused = retrieve(req.question)
+    chunks, refused = retrieve(req.question)
 
-    # if refused:
-    #     latency_ms = (time.perf_counter() - start) * 1000
-    #     record_request(refused=True, score=0.0, latency_ms=latency_ms, tokens={"prompt": 0, "completion": 0})
-    #     return AskResponse(
-    #         answer=REFUSAL_ANSWER,
-    #         sources=[],
-    #         latency_ms=round(latency_ms, 1),
-    #         tokens={"prompt": 0, "completion": 0},
-    #     )
+    if refused:
+        latency_ms = (time.perf_counter() - start) * 1000
+        record_request(refused=True, score=0.0, latency_ms=latency_ms, tokens={"prompt": 0, "completion": 0})
+        return AskResponse(
+            answer=REFUSAL_ANSWER,
+            sources=[],
+            latency_ms=round(latency_ms, 1),
+            tokens={"prompt": 0, "completion": 0},
+        )
 
-    # result = generate(req.question, chunks)
-    # latency_ms = (time.perf_counter() - start) * 1000
-    # best_score = chunks[0]["score"] if chunks else 0.0
-    # record_request(refused=False, score=best_score, latency_ms=latency_ms, tokens=result["tokens"])
+    result = generate(req.question, chunks)
+    latency_ms = (time.perf_counter() - start) * 1000
+    best_score = chunks[0]["score"] if chunks else 0.0
+    record_request(refused=False, score=best_score, latency_ms=latency_ms, tokens=result["tokens"])
 
-    # return AskResponse(
-    #     answer=result["answer"],
-    #     sources=result["sources"],
-    #     latency_ms=round(latency_ms, 1),
-    #     tokens=result["tokens"],
-    # )
-
-    raise HTTPException(status_code=501, detail="Endpoint non encore implémenté — voir retrieve.py et generate.py (R3)")
+    return AskResponse(
+        answer=result["answer"],
+        sources=result["sources"],
+        latency_ms=round(latency_ms, 1),
+        tokens=result["tokens"],
+    )
 
 
 @app.get("/metrics")

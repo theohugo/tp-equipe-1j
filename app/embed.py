@@ -28,8 +28,7 @@ def run_embedding() -> int:
     chunks = load_chunks()
     print(f"{len(chunks)} chunks à vectoriser")
 
-    # TODO R2 : instancier le modèle d'embeddings
-    # model = SentenceTransformer(settings.embed_model)
+    model = SentenceTransformer(settings.embed_model)
 
     store = QdrantStore()
     store.init_collection()
@@ -39,11 +38,9 @@ def run_embedding() -> int:
         batch = chunks[i : i + BATCH_SIZE]
         texts = [c["text"] for c in batch]
 
-        # TODO R2 : produire les vecteurs (normaliser avec normalize_embeddings=True)
-        # vectors = model.encode(texts, normalize_embeddings=True).tolist()
+        vectors = model.encode(texts, normalize_embeddings=True).tolist()
 
-        # TODO R2 : upsert dans Qdrant via store.upsert(vectors, batch)
-        # store.upsert(vectors, batch)
+        store.upsert(vectors, batch)
 
         total += len(batch)
         print(f"  Batch {i // BATCH_SIZE + 1} — {total}/{len(chunks)} chunks indexés")

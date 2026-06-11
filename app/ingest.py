@@ -35,18 +35,14 @@ def extract_text(file_path: Path) -> str:
         return str(data)
 
     if suffix == ".pdf":
-        # TODO R1 : utiliser pdfplumber
-        # import pdfplumber
-        # with pdfplumber.open(file_path) as pdf:
-        #     return "\n".join(p.extract_text() or "" for p in pdf.pages)
-        raise NotImplementedError("PDF extraction — à compléter (R1)")
+        import pdfplumber
+        with pdfplumber.open(file_path) as pdf:
+            return "\n".join(p.extract_text() or "" for p in pdf.pages)
 
     if suffix in (".html", ".htm"):
-        # TODO R1 : utiliser selectolax
-        # from selectolax.parser import HTMLParser
-        # tree = HTMLParser(file_path.read_text(encoding="utf-8"))
-        # return tree.text(separator="\n")
-        raise NotImplementedError("HTML extraction — à compléter (R1)")
+        from selectolax.parser import HTMLParser
+        tree = HTMLParser(file_path.read_text(encoding="utf-8"))
+        return tree.text(separator="\n")
 
     return ""
 
