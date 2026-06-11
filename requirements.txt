@@ -1,0 +1,23 @@
+# API
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+pydantic==2.7.1
+python-dotenv==1.0.1
+
+# Embeddings
+sentence-transformers==3.0.1
+
+# Vector store
+qdrant-client==1.9.1
+
+# Ingestion
+pdfplumber==0.11.0
+selectolax==0.3.21
+langchain-text-splitters==0.2.0
+
+# LLM clients
+groq==0.9.0
+google-generativeai==0.7.0
+
+# Metrics / utils
+numpy==1.26.4
