@@ -15,6 +15,21 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama
+    container_name: assistkb_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 1 bash -c 'cat < /dev/null > /dev/tcp/localhost/11434' && exit 0 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
   api:
     build: .
     container_name: assistkb_api
@@ -27,6 +42,8 @@ services:
     depends_on:
       qdrant:
         condition: service_healthy
+      ollama:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
       interval: 15s
@@ -36,3 +53,4 @@ services:
 
 volumes:
   qdrant_data:
+  ollama_data:

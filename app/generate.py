@@ -59,6 +59,19 @@ def generate(query: str, chunks: list[dict]) -> dict:
         answer = response.text
         tokens = {"prompt": 0, "completion": 0}
 
+    elif settings.llm_provider == "ollama":
+        from ollama import Client
+        client = Client(host=settings.ollama_host)
+        response = client.chat(
+            model=settings.llm_model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"Contexte :\n{context}\n\nQuestion : {query}"},
+            ],
+        )
+        answer = response.message.content
+        tokens = {"prompt": 0, "completion": 0}
+
     else:
         raise ValueError(f"LLM provider inconnu : {settings.llm_provider}")
 

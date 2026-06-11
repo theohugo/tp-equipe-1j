@@ -5,8 +5,9 @@ class Settings(BaseSettings):
     # LLM
     groq_api_key: str = ""
     gemini_api_key: str = ""
-    llm_provider: str = "groq"
-    llm_model: str = "llama-3.3-70b-versatile"
+    llm_provider: str = "ollama"
+    llm_model: str = "llama3.2"
+    ollama_host: str = "http://host.docker.internal:11434"
 
     # Vector store
     vector_store: str = "qdrant"
