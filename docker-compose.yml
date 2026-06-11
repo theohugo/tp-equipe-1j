@@ -22,12 +22,15 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+      - ./scripts/ollama-start.sh:/ollama-start.sh
+    entrypoint: ["/bin/sh", "/ollama-start.sh"]
     healthcheck:
-      test: ["CMD-SHELL", "timeout 1 bash -c 'cat < /dev/null > /dev/tcp/localhost/11434' && exit 0 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 15s
+      # Healthy seulement quand le modèle est téléchargé et prêt
+      test: ["CMD-SHELL", "ollama list 2>/dev/null | grep -q 'llama3.2' && exit 0 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
     restart: unless-stopped
 
   api:
@@ -48,7 +51,9 @@ services:
       test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
       interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 10
+      # start_period couvre ingest + embed (chargement du modèle d'embedding ~60s + vectorisation)
+      start_period: 300s
     restart: unless-stopped
 
 volumes:
