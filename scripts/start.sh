@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Ingestion -- seulement si chunks.jsonl est absent ou vide
 if [ ! -s corpus/chunks.jsonl ]; then
     echo "[start] Ingestion du corpus..."
     python -m app.ingest
@@ -9,8 +8,7 @@ else
     echo "[start] corpus/chunks.jsonl deja present, ingestion ignoree."
 fi
 
-# Embedding -- verifie si la collection Qdrant est deja peuplee
-POINTS=$(curl -sf "http://${QDRANT_HOST:-qdrant}:${QDRANT_PORT:-6333}/collections/${QDRANT_COLLECTION:-assistkb}" 2>/dev/null \n    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('result',{}).get('points_count',0))" 2>/dev/null || echo "0")
+POINTS=$(curl -sf "http://${QDRANT_HOST:-qdrant}:${QDRANT_PORT:-6333}/collections/${QDRANT_COLLECTION:-assistkb}" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('result',{}).get('points_count',0))" 2>/dev/null || echo "0")
 
 if [ "$POINTS" = "0" ]; then
     echo "[start] Indexation dans Qdrant..."

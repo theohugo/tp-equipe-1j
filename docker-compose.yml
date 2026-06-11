@@ -19,13 +19,13 @@ services:
     image: ollama/ollama
     container_name: assistkb_ollama
     ports:
-      - "11435:11434"
+      - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-      - ./scripts/ollama-start.sh:/ollama-start.sh
-    entrypoint: ["/bin/sh", "/ollama-start.sh"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "ollama serve & until ollama list >/dev/null 2>&1; do sleep 2; done; echo '[ollama] Serveur pret.'; ollama pull llama3.2; echo '[ollama] Modele pret.'; wait"
     healthcheck:
-      # Healthy seulement quand le modèle est téléchargé et prêt
       test: ["CMD-SHELL", "ollama list 2>/dev/null | grep -q 'llama3.2' && exit 0 || exit 1"]
       interval: 10s
       timeout: 10s
