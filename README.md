@@ -154,7 +154,20 @@ Toutes les variables sont dans `.env` :
 | `CHUNK_SIZE` | `800` | Taille des chunks en caractères |
 | `CHUNK_OVERLAP` | `120` | Chevauchement entre chunks |
 | `TOP_K` | `5` | Nombre de chunks récupérés par requête |
-| `SIMILARITY_THRESHOLD` | `0.30` | Score minimum pour ne pas refuser |
+| `SIMILARITY_THRESHOLD` | `0.30` | Score minimum pour ne pas refuser (voir tableau ci-dessous) |
+
+### Choix du seuil de similarité
+
+Le `SIMILARITY_THRESHOLD` est le paramètre clé de l'anti-hallucination. Si le meilleur chunk retourné par Qdrant obtient un score inférieur à ce seuil, le système refuse de répondre plutôt que de risquer d'inventer.
+
+Nous avons retenu **0.30** comme valeur d'équilibre : suffisamment bas pour accepter les questions légitimement couvertes par le corpus, suffisamment haut pour bloquer les questions hors-sujet avant qu'elles n'atteignent le LLM.
+
+| Seuil | Comportement |
+|-------|-------------|
+| `0.50+` | Très restrictif — refuse beaucoup, mais les réponses données sont très fiables |
+| **`0.30`** | **Equilibré — valeur retenue dans ce projet** |
+| `0.20` | Permissif — répond plus souvent, plus de risque de hors-sujet |
+| `0.10` | Répond à presque tout avec des chunks non pertinents → hallucinations garanties |
 
 ### Utiliser Groq à la place d'Ollama
 
