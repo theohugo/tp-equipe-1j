@@ -69,7 +69,8 @@ def generate(query: str, chunks: list[dict]) -> dict:
                 {"role": "user", "content": f"Contexte :\n{context}\n\nQuestion : {query}"},
             ],
         )
-        answer = response.message.content
+        msg = response['message'] if isinstance(response, dict) else response.message
+        answer = msg['content'] if isinstance(msg, dict) else msg.content
         tokens = {"prompt": 0, "completion": 0}
 
     else:
