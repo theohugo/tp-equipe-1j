@@ -25,8 +25,14 @@ env/
 *.onnx
 chroma_db/
 qdrant_storage/
-data/raw/
-data/processed/
+
+# Corpus (sauf seed et .gitkeep)
+corpus/raw/*
+!corpus/raw/.gitkeep
+corpus/chunks.jsonl
+
+# Env
+.env
 
 # IDE
 .vscode/
