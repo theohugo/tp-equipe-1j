@@ -82,47 +82,90 @@ const PASTEL_COLORS={blue:{bg: '#dbeafe', border: '#3b82f6', text: '#1e3a8a'}, g
     
     <article class="markdown-body">
         <h1 id="compte-rendu-projet-a-assistkb-search">Compte rendu - Projet A : AssistKB Search</h1>
-<blockquote>
-<p>Template a copier dans <code>docs/COMPTE-RENDU.md</code> de votre repo et a remplir. Les 8 premieres sections
-sont <strong>obligatoires</strong> pour le rendu fin de journee. Les sections 9 a 11 sont pour le rendu complet
-(semaine +1, optionnel). Conformite verifiee via <a href="../STRUCTURE-RENDU.md">STRUCTURE-RENDU.md</a>.</p>
-</blockquote>
 <hr />
-<h2 id="1-presentation">1. Presentation</h2>
+<h2 id="1-presentation">1. Présentation</h2>
 <ul>
-<li><strong>Equipe</strong> : <strong><em>_</em></strong><strong><em>_</em></strong>_</li>
-<li><strong>Membres et roles</strong> :</li>
-<li><strong><em>_</em></strong>______ - R1 Data / Ingestion</li>
-<li><strong><em>_</em></strong>______ - R2 Embeddings / Index</li>
-<li><strong><em>_</em></strong>______ - R3 Retrieval / LLM</li>
-<li><strong><em>_</em></strong>______ - R4 DevOps / Observabilite</li>
-<li><strong>Projet</strong> : A - AssistKB Search (vector store Qdrant)</li>
-<li><strong>Depot GitHub</strong> : https://github.com/<strong><em>_</em></strong><strong><em>_</em></strong>_</li>
+<li><strong>Équipe</strong> : Équipe 1J</li>
+<li><strong>Membres et rôles</strong> :
+<ul>
+<li>Amine Taleb — R1 Data / Ingestion</li>
+<li>Amine Taleb — R2 Embeddings / Index</li>
+<li>TheoHugo — R3 Retrieval / LLM</li>
+<li>TheoHugo — R4 DevOps / Observabilité</li>
 </ul>
+</li>
+<li><strong>Projet</strong> : A - AssistKB Search (vector store Qdrant)</li>
+<li><strong>Dépôt GitHub</strong> : <a href="https://github.com/theohugo/tp-equipe-1j">https://github.com/theohugo/tp-equipe-1j</a></li>
+</ul>
+
 <h2 id="2-objectif">2. Objectif</h2>
-<blockquote>
-<p>En 5 lignes : que fait votre RAG, sur quel corpus, pour quel besoin (lien fil rouge AssistKB-Neosoft).</p>
-</blockquote>
+<p>
+AssistKB Search est un pipeline RAG (Retrieval-Augmented Generation) de recherche documentaire sur base de connaissances.
+Le système ingère un corpus de documents (HTML, PDF, TXT, JSON) issus de sources ouvertes (data.gouv.fr, documents de référence RGPD, rapports d'incidents IA),
+les découpe en chunks, les vectorise avec <code>all-MiniLM-L6-v2</code> et les indexe dans Qdrant.
+À chaque question, la recherche sémantique retrouve les passages les plus pertinents ; un seuil de similarité filtre les questions hors corpus pour éviter toute hallucination.
+Le LLM (Ollama/llama3.2 en local, ou Groq/llama-3.3-70b en cloud) génère une réponse sourcée.
+Ce système répond au fil rouge AssistKB-Neosoft : fournir un assistant documentaire fiable qui préfère refuser plutôt qu'inventer.
+</p>
+
 <h2 id="3-architecture">3. Architecture</h2>
-<blockquote>
-<p>Inserez votre schema (Mermaid). Decrivez chaque composant et les flux.</p>
-</blockquote>
+
 <pre class="mermaid">
 flowchart LR
-    t_q["Question"] --&gt;|"embedding"| t_search["Qdrant top-k"]
-    t_search --&gt;|"contexte + sources"| t_llm["LLM"]
-    t_llm --&gt;|"reponse citee"| t_api["API /ask"]
+    user["Utilisateur"] -->|"POST /ask"| api["API FastAPI\n:8000"]
+    api -->|"embed(question)"| embed["all-MiniLM-L6-v2\n(sentence-transformers)"]
+    embed -->|"vecteur 384d"| qdrant["Qdrant\n:6333\ncollection: assistkb"]
+    qdrant -->|"top-5 chunks + scores"| seuil{"Score ≥ seuil\n(0.30) ?"}
+    seuil -->|"non"| refus["Réponse de refus\n(hors corpus)"]
+    seuil -->|"oui"| llm["LLM\nOllama llama3.2\nou Groq llama-3.3-70b"]
+    llm -->|"réponse + sources citées"| api
+    api -->|"record_request()"| metrics["Métriques\nGET /metrics"]
 </pre>
 
+<p>Les documents du corpus sont préalablement ingérés (<code>app/ingest.py</code> → <code>corpus/chunks.jsonl</code>) puis vectorisés dans Qdrant (<code>app/embed.py</code> + <code>app/store.py</code>) avant le lancement de l'API.</p>
+
 <h2 id="4-fonctionnement">4. Fonctionnement</h2>
-<blockquote>
-<p>Le parcours d'une question, etape par etape : reception API -&gt; embedding -&gt; recherche Qdrant -&gt;
-seuil de refus -&gt; prompt -&gt; LLM -&gt; reponse + sources. Precisez votre <strong>seuil de similarite</strong>.</p>
-</blockquote>
+<ol>
+<li><strong>Réception</strong> : <code>POST /ask</code> reçoit <code>{"question": "..."}</code></li>
+<li><strong>Embedding</strong> : la question est transformée en vecteur de 384 dimensions par <code>all-MiniLM-L6-v2</code> (sentence-transformers, local)</li>
+<li><strong>Recherche Qdrant</strong> : similarité cosinus → top-k=5 chunks les plus proches avec leurs scores</li>
+<li><strong>Seuil de refus</strong> : si le score du meilleur résultat est inférieur à <code>SIMILARITY_THRESHOLD=0.30</code>, l'API retourne un message de refus sans appeler le LLM</li>
+<li><strong>Construction du prompt</strong> : les 5 chunks retenus sont injectés comme contexte avec la question dans un prompt système</li>
+<li><strong>LLM</strong> : Ollama (llama3.2, déployé localement via Docker) ou Groq (llama-3.3-70b-versatile, cloud) génère la réponse</li>
+<li><strong>Réponse</strong> : retournée avec les sources citées (nom de fichier source + chunk_index)</li>
+<li><strong>Métriques</strong> : chaque requête est enregistrée (score, latence ms, tokens, refus/répondu) via <code>app/metrics.py</code>, consultable sur <code>GET /metrics</code></li>
+</ol>
+<p><strong>Seuil de similarité retenu : 0.30</strong> (configurable via <code>SIMILARITY_THRESHOLD</code> dans <code>.env</code>).</p>
+
 <h2 id="5-structure-du-projet">5. Structure du projet</h2>
-<blockquote>
-<p>Arborescence commentee (quel fichier fait quoi).</p>
-</blockquote>
+<pre><code>tp_equipe_1j/
+├── app/
+│   ├── api.py           # R3 — Endpoint FastAPI POST /ask et GET /metrics
+│   ├── config.py        # Configuration Pydantic (toutes les vars d'env)
+│   ├── ingest.py        # R1 — Extraction texte (PDF/HTML/JSON/TXT) + découpage RecursiveCharacterTextSplitter
+│   ├── embed.py         # R2 — Génération des embeddings (sentence-transformers)
+│   ├── store.py         # R2 — Adaptateur Qdrant (init collection COSINE, upsert, search)
+│   ├── retrieve.py      # R3 — Recherche sémantique + filtrage par seuil de similarité
+│   ├── generate.py      # R3 — Génération de réponse LLM (Ollama / Groq / Gemini)
+│   └── metrics.py       # R4 — Collecte métriques en mémoire (latence, tokens, coût, refus)
+├── corpus/
+│   ├── seed/            # 7 documents de référence committés (HTML : RGPD, incidents IA, Qdrant…)
+│   ├── raw/             # Corpus téléchargé via fetch_corpus (ignoré par .gitignore)
+│   └── chunks.jsonl     # Sortie de l'ingestion (généré par app/ingest.py)
+├── scripts/
+│   ├── fetch_corpus.ps1 # Téléchargement corpus Windows (paramètres -Query, -NItems)
+│   ├── fetch_corpus.sh  # Téléchargement corpus Linux/Mac
+│   └── start.sh         # Script de démarrage des services
+├── .github/
+│   └── workflows/       # R4 — CI/CD GitHub Actions
+├── docker-compose.yml   # R4 — Stack 3 services : qdrant + ollama + api
+├── Dockerfile           # Image de l'API (Python 3.11, pip install, dos2unix)
+├── requirements.txt     # Dépendances Python (FastAPI, qdrant-client, sentence-transformers…)
+├── .env                 # Configuration active (LLM_PROVIDER=ollama, seuil 0.30)
+├── .env.example         # Template de configuration (LLM_PROVIDER=groq, seuil 0.45)
+└── README.md            # Guide de démarrage rapide
+</code></pre>
+
 <h2 id="6-choix-techniques-le-pourquoi">6. Choix techniques (le pourquoi)</h2>
 <table>
 <thead>
@@ -134,99 +177,123 @@ seuil de refus -&gt; prompt -&gt; LLM -&gt; reponse + sources. Precisez votre <s
 </thead>
 <tbody>
 <tr>
-<td>Modele embeddings</td>
+<td>Modèle embeddings</td>
 <td>all-MiniLM-L6-v2</td>
-<td><strong><em>_</em></strong>______</td>
+<td>Modèle léger (384 dimensions), rapide en inférence locale, bon équilibre qualité/vitesse sur textes FR/EN. Aucune clé API requise.</td>
 </tr>
 <tr>
 <td>Vector store</td>
-<td>Qdrant</td>
-<td><strong><em>_</em></strong>______</td>
+<td>Qdrant v1.9.2</td>
+<td>Image Docker officielle, API gRPC + REST, healthcheck natif, idempotence des upserts. Bien adapté au cadre pédagogique.</td>
 </tr>
 <tr>
 <td>Distance</td>
-<td><strong><em>_</em></strong>______</td>
-<td><strong><em>_</em></strong>______</td>
+<td>Cosinus (COSINE)</td>
+<td>Les vecteurs all-MiniLM-L6-v2 sont normalisés : la similarité cosinus mesure l'alignement sémantique indépendamment de la magnitude.</td>
 </tr>
 <tr>
 <td>chunk_size / overlap</td>
-<td><strong><em>_</em> / </strong>___</td>
-<td><strong><em>_</em></strong>______</td>
+<td>800 / 120 caractères</td>
+<td>800 chars ≈ ~150 tokens, bien dans la fenêtre LLM. L'overlap de 120 évite de couper une phrase-clé à la frontière entre deux chunks.</td>
 </tr>
 <tr>
 <td>top_k</td>
-<td>_____</td>
-<td><strong><em>_</em></strong>______</td>
+<td>5</td>
+<td>5 chunks × ~150 tokens ≈ 750 tokens de contexte injectés, suffisant pour une réponse précise sans saturer le prompt LLM.</td>
 </tr>
 <tr>
-<td>seuil de refus</td>
-<td>_____</td>
-<td><strong><em>_</em></strong>______</td>
+<td>Seuil de refus</td>
+<td>0.30</td>
+<td>Valeur calibrée empiriquement sur le corpus seed : en dessous, les documents retrouvés sont trop éloignés pour être fiables (risque d'hallucination).</td>
 </tr>
 <tr>
-<td>LLM</td>
-<td><strong><em>_</em></strong>______</td>
-<td><strong><em>_</em></strong>______</td>
+<td>LLM local</td>
+<td>Ollama llama3.2</td>
+<td>Déployé en Docker, 0 appel API externe, fonctionne hors-ligne. Idéal pour le développement et les démonstrations sans clé.</td>
+</tr>
+<tr>
+<td>LLM cloud</td>
+<td>Groq llama-3.3-70b-versatile</td>
+<td>Inférence très rapide (~500 tok/s), coût faible ($0.59/M prompt + $0.79/M completion), activable via <code>LLM_PROVIDER=groq</code> dans .env.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="7-resultats-metriques">7. Resultats / metriques</h2>
+
+<h2 id="7-resultats-metriques">7. Résultats / métriques</h2>
 <table>
 <thead>
 <tr>
-<th>Metrique</th>
+<th>Métrique</th>
 <th>Valeur</th>
 <th>Commentaire</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Score similarite moyen (top-k)</td>
-<td>_____</td>
-<td>qualite retrieval</td>
+<td>Score similarité moyen (top-1)</td>
+<td>à mesurer</td>
+<td>Disponible via <code>GET /metrics</code> → <code>retrieval.avg_top1_score</code></td>
 </tr>
 <tr>
 <td>Taux de refus (questions hors corpus)</td>
-<td>_____ %</td>
-<td>doit etre eleve sur le lot hors-corpus</td>
+<td>à mesurer %</td>
+<td>Cible élevée sur le lot hors-corpus (ex : capitale d'Australie, CA 2025…)</td>
 </tr>
 <tr>
 <td>Latence p50 / p95</td>
-<td><strong><em>_</em> / </strong>___ ms</td>
-<td>exploitation</td>
+<td>à mesurer ms</td>
+<td>Ollama local : ~3-8 s selon GPU ; Groq cloud : &lt; 2 s attendu</td>
 </tr>
 <tr>
 <td>Tokens moyens (prompt + completion)</td>
-<td>_____</td>
-<td>FinOps</td>
+<td>à mesurer</td>
+<td>Suivi dans <code>metrics.tokens.total</code> après chaque appel</td>
 </tr>
 <tr>
-<td>Cout projete "si paye" / 1000 questions</td>
-<td>_____ USD</td>
-<td>cf. app/metrics.py</td>
+<td>Coût projeté "si payé" / 1000 questions</td>
+<td>à mesurer USD</td>
+<td>Groq : $0.59/M prompt + $0.79/M completion (cf. <code>app/metrics.py</code>). Ollama : $0.</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p>Joignez une capture de 2-3 questions/reponses (une qui repond, une qui refuse).</p>
+<p>Pour obtenir les métriques : démarrer le stack (<code>docker compose up -d</code>), soumettre quelques questions via <code>POST /ask</code> (dans et hors corpus), puis consulter <code>http://localhost:8000/metrics</code>.</p>
 </blockquote>
-<h2 id="8-difficultes-et-limites">8. Difficultes et limites</h2>
 <blockquote>
-<p>Ce qui n'a pas marche, ce que vous feriez avec plus de temps.</p>
+<p><strong>Exemples de test :</strong><br>
+✅ Dans le corpus — <em>« Quelles mesures de sécurité sont recommandées pour les données personnelles ? »</em> → réponse citée avec source<br>
+❌ Hors corpus — <em>« Quelle est la capitale de l'Australie ? »</em> → refus (score &lt; 0.30)</p>
 </blockquote>
+
+<h2 id="8-difficultes-et-limites">8. Difficultés et limites</h2>
+<ul>
+<li><strong>Conflit de port 11434</strong> : un container Ollama d'un autre projet occupait déjà le port au démarrage. Résolu en arrêtant le container concurrent (<code>docker stop ai-eng-ollama</code>).</li>
+<li><strong>Temps de démarrage long</strong> : le premier lancement télécharge llama3.2 (~2 Go) et attend le <code>healthcheck</code> Ollama. Le <code>start_period: 300s</code> de l'API est nécessaire mais allonge le cycle de développement.</li>
+<li><strong>Seuil de refus à calibrer</strong> : 0.30 est un compromis empirique. Sans golden dataset, il est difficile de mesurer précisément le taux de faux positifs (refus légitimes) vs faux négatifs (hallucinations passées).</li>
+<li><strong>Corpus restreint</strong> : les 7 fichiers seed couvrent un périmètre limité. Un crawling data.gouv.fr plus large améliorerait la couverture et la diversité des réponses.</li>
+<li><strong>Chargement du modèle d'embedding au démarrage</strong> : all-MiniLM-L6-v2 (~90 Mo) est chargé en mémoire à chaque démarrage de l'API, ce qui allonge le <code>start_period</code>. Un service d'embedding séparé ou mis en cache persisterait mieux.</li>
+<li><strong>Pas de streaming LLM</strong> : la réponse est attendue en totalité avant envoi, ce qui augmente la latence perçue. L'ajout de SSE (Server-Sent Events) améliorerait l'expérience utilisateur.</li>
+</ul>
+
 <hr />
-<h2 id="9-bonus-evaluation-golden-dataset">9. (Bonus) Evaluation - golden dataset</h2>
+<h2 id="9-bonus-evaluation-golden-dataset">9. (Bonus) Évaluation - golden dataset</h2>
 <blockquote>
-<p>10 questions de reference avec la source attendue. recall@k mesure.</p>
+<p>10 questions de référence avec la source attendue. recall@k mesuré.</p>
 </blockquote>
+
 <h2 id="10-bonus-reranking">10. (Bonus) Reranking</h2>
 <blockquote>
-<p>Effet du cross-encoder sur la pertinence (avant/apres).</p>
+<p>Effet du cross-encoder sur la pertinence (avant/après).</p>
 </blockquote>
-<h2 id="11-bonus-pistes-damelioration">11. (Bonus) Pistes d'amelioration</h2>
-<blockquote>
-<p>Recherche hybride (BM25 + vectoriel), optimisation cout/latence, etc.</p>
-</blockquote>
+
+<h2 id="11-bonus-pistes-damelioration">11. (Bonus) Pistes d'amélioration</h2>
+<ul>
+<li>Recherche hybride BM25 + vectoriel pour combiner pertinence lexicale et sémantique</li>
+<li>Reranking cross-encoder pour améliorer la précision top-1 après Qdrant</li>
+<li>Streaming des réponses LLM via SSE pour réduire la latence perçue</li>
+<li>Détection de langue (<code>langdetect</code>) pour mieux gérer les corpus multilingues</li>
+<li>Optimisation coût : mutualiser le service d'embedding, passer à un modèle plus léger en production</li>
+</ul>
     </article>
 
     
