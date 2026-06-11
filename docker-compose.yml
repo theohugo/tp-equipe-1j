@@ -29,7 +29,7 @@ services:
       test: ["CMD-SHELL", "ollama list 2>/dev/null | grep -q 'llama3.2' && exit 0 || exit 1"]
       interval: 10s
       timeout: 10s
-      retries: 30
+      retries: 120
       start_period: 30s
     restart: unless-stopped
 
