@@ -18,23 +18,16 @@ L'utilisateur pose une question en langage naturel, le système recherche les pa
 
 ## Architecture
 
-```
-Question
-   │
-   ▼
-[Embedding local]          all-MiniLM-L6-v2 (384 dims, sentence-transformers)
-   │
-   ▼
-[Qdrant — top-k=5]         Recherche par similarité cosinus dans le vector store
-   │
-   ▼
-[Seuil similarité]         score < 0.30 → refus (anti-hallucination)
-   │
-   ▼
-[LLM Ollama llama3.2]      Génération de la réponse avec citations sources
-   │
-   ▼
-Réponse + sources + métriques
+```mermaid
+flowchart LR
+    user["Utilisateur"] -->|"POST /ask"| api["API FastAPI\n:8000"]
+    api -->|"embed(question)"| embed["all-MiniLM-L6-v2\n(sentence-transformers)"]
+    embed -->|"vecteur 384d"| qdrant["Qdrant\n:6333\ncollection: assistkb"]
+    qdrant -->|"top-5 chunks + scores"| seuil{"Score ≥ seuil\n(0.30) ?"}
+    seuil -->|"non"| refus["Réponse de refus\n(hors corpus)"]
+    seuil -->|"oui"| llm["LLM\nOllama llama3.2\nou Groq llama-3.3-70b"]
+    llm -->|"réponse + sources citées"| api
+    api -->|"record_request()"| metrics["Métriques\nGET /metrics"]
 ```
 
 | Service | Image | Port | Rôle |
