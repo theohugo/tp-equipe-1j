@@ -3,7 +3,16 @@
 Système de recherche documentaire basé sur un pipeline **RAG** (Retrieval-Augmented Generation).  
 L'utilisateur pose une question en langage naturel, le système recherche les passages pertinents dans un corpus de documents et génère une réponse citée, sans hallucination.
 
+**Projet :** A — AssistKB Search (vector store Qdrant)
+
 **Équipe :** RAGUIN Hugo · TALEB Amine
+
+| Rôle | Membre | Fichiers |
+|------|--------|----------|
+| R1 — Data / Ingestion | Amine Taleb | `app/ingest.py` |
+| R2 — Embeddings / Index | Amine Taleb | `app/embed.py`, `app/store.py` |
+| R3 — Retrieval / LLM | Hugo Raguin | `app/retrieve.py`, `app/generate.py`, `app/api.py` |
+| R4 — DevOps / Observabilité | Hugo Raguin | `docker-compose.yml`, `app/metrics.py`, `.github/` |
 
 ---
 
