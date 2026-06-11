@@ -17,7 +17,7 @@ selectolax==0.3.21
 langchain-text-splitters==0.2.0
 
 # LLM clients
-groq==0.9.0
+groq>=0.11.0
 google-generativeai==0.7.0
 
 # Metrics / utils
