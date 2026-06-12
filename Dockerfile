@@ -10,6 +10,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
+COPY static/ ./static/
 COPY scripts/start.sh ./start.sh
 RUN dos2unix start.sh && chmod +x start.sh
 

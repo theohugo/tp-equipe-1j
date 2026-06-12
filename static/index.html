@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AssistKB Search</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #222535;
+      --border: #2e3150;
+      --accent: #6c63ff;
+      --accent-dim: #3d3a6b;
+      --text: #e8eaf0;
+      --text-muted: #8b8fa8;
+      --green: #4ade80;
+      --red: #f87171;
+      --yellow: #fbbf24;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      max-width: 800px;
+      padding: 32px 24px 16px;
+      text-align: center;
+    }
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #6c63ff, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p {
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-size: 0.9rem;
+    }
+
+    /* ── Chat history ── */
+    #chat {
+      flex: 1;
+      width: 100%;
+      max-width: 800px;
+      padding: 8px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      margin: auto;
+      text-align: center;
+      color: var(--text-muted);
+      padding: 48px 0;
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.95rem; }
+
+    /* ── Message bubbles ── */
+    .msg { display: flex; flex-direction: column; gap: 4px; }
+    .msg.user { align-items: flex-end; }
+    .msg.assistant { align-items: flex-start; }
+
+    .bubble {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      line-height: 1.6;
+      font-size: 0.95rem;
+      word-break: break-word;
+    }
+    .msg.user .bubble {
+      background: var(--accent);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.assistant .bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    .bubble.refused {
+      border-color: var(--red);
+      background: #2a1515;
+    }
+
+    /* ── Metadata bar ── */
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      padding: 0 4px;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 8px;
+    }
+    .tag.green { border-color: var(--green); color: var(--green); }
+    .tag.red   { border-color: var(--red);   color: var(--red); }
+    .tag.yellow{ border-color: var(--yellow); color: var(--yellow); }
+
+    /* ── Sources ── */
+    .sources {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .sources span { display: block; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+    .source-chip {
+      display: inline-block;
+      background: var(--accent-dim);
+      color: #a78bfa;
+      border-radius: 6px;
+      padding: 2px 8px;
+      margin: 2px 2px 0 0;
+      font-size: 0.8rem;
+    }
+
+    /* ── Loader dots ── */
+    .loader {
+      display: flex;
+      gap: 5px;
+      padding: 14px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      border-bottom-left-radius: 4px;
+    }
+    .loader span {
+      width: 8px; height: 8px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+    .loader span:nth-child(2) { animation-delay: 0.2s; }
+    .loader span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40%            { transform: scale(1);   opacity: 1; }
+    }
+
+    /* ── Input area ── */
+    .input-area {
+      width: 100%;
+      max-width: 800px;
+      padding: 16px 24px 28px;
+      position: sticky;
+      bottom: 0;
+      background: linear-gradient(to top, var(--bg) 80%, transparent);
+    }
+    .input-box {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      transition: border-color 0.2s;
+    }
+    .input-box:focus-within { border-color: var(--accent); }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      resize: none;
+      line-height: 1.5;
+      min-height: 24px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    textarea::placeholder { color: var(--text-muted); }
+
+    button#send {
+      flex-shrink: 0;
+      width: 38px; height: 38px;
+      border-radius: 9px;
+      border: none;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.1s;
+    }
+    button#send:hover:not(:disabled) { background: #5952d4; }
+    button#send:active:not(:disabled) { transform: scale(0.93); }
+    button#send:disabled { background: var(--border); cursor: not-allowed; }
+
+    .hint { text-align: center; font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>AssistKB Search</h1>
+  <p>Posez une question sur la base de connaissance Neosoft</p>
+</header>
+
+<div id="chat">
+  <div class="empty-state" id="empty">
+    <div class="icon">🔍</div>
+    <p>Posez une question pour commencer.<br>Le système ne répond que sur les sujets couverts par le corpus.</p>
+  </div>
+</div>
+
+<div class="input-area">
+  <div class="input-box">
+    <textarea id="q" rows="1" placeholder="Ex : Qu'est-ce que Qdrant et comment fonctionne-t-il ?"
+              onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <button id="send" onclick="send()" title="Envoyer (Entrée)">&#9650;</button>
+  </div>
+  <p class="hint">Entrée pour envoyer · Maj+Entrée pour un saut de ligne</p>
+</div>
+
+<script>
+  const chat  = document.getElementById('chat');
+  const input = document.getElementById('q');
+  const btn   = document.getElementById('send');
+  const empty = document.getElementById('empty');
+  let busy = false;
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  }
+
+  function addMsg(role, content) {
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.innerHTML = content;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+    return div;
+  }
+
+  async function send() {
+    const q = input.value.trim();
+    if (!q || busy) return;
+
+    empty.style.display = 'none';
+    busy = true;
+    btn.disabled = true;
+
+    // User bubble
+    addMsg('user', `<div class="bubble">${escHtml(q)}</div>`);
+    input.value = '';
+    input.style.height = 'auto';
+
+    // Loading indicator
+    const loader = document.createElement('div');
+    loader.className = 'msg assistant';
+    loader.innerHTML = `<div class="loader"><span></span><span></span><span></span></div>`;
+    chat.appendChild(loader);
+    chat.scrollTop = chat.scrollHeight;
+
+    try {
+      const res = await fetch('/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q }),
+      });
+
+      if (!res.ok) throw new Error(`Erreur serveur ${res.status}`);
+      const data = await res.json();
+      loader.remove();
+      renderAnswer(data);
+    } catch (err) {
+      loader.remove();
+      addMsg('assistant', `<div class="bubble refused">⚠️ ${escHtml(err.message)}</div>`);
+    } finally {
+      busy = false;
+      btn.disabled = false;
+      input.focus();
+    }
+  }
+
+  function renderAnswer(data) {
+    const refused = data.sources.length === 0;
+    const latency = data.latency_ms < 1000
+      ? `${Math.round(data.latency_ms)} ms`
+      : `${(data.latency_ms / 1000).toFixed(1)} s`;
+    const tokens = (data.tokens.prompt || 0) + (data.tokens.completion || 0);
+
+    let sourcesHtml = '';
+    if (data.sources.length > 0) {
+      const chips = data.sources.map(s => `<span class="source-chip">📄 ${escHtml(s)}</span>`).join('');
+      sourcesHtml = `<div class="sources"><span>Sources</span>${chips}</div>`;
+    }
+
+    const bubbleClass = refused ? 'bubble refused' : 'bubble';
+    const html = `
+      <div class="${bubbleClass}">${escHtml(data.answer)}${sourcesHtml}</div>
+      <div class="meta">
+        <span class="tag ${refused ? 'red' : 'green'}">${refused ? '✗ Hors corpus' : '✓ Réponse sourcée'}</span>
+        <span class="tag">⏱ ${latency}</span>
+        ${tokens > 0 ? `<span class="tag yellow">🔤 ${tokens} tokens</span>` : ''}
+      </div>`;
+
+    addMsg('assistant', html);
+  }
+
+  function escHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/\n/g, '<br>');
+  }
+</script>
+</body>
+</html>
