@@ -32,7 +32,7 @@ flowchart LR
 
 | Service | Image | Port | Rôle |
 |---------|-------|------|------|
-| `api` | Python 3.11 + FastAPI | 8000 | Endpoints `/ask`, `/metrics`, `/health` |
+| `api` | Python 3.11 + FastAPI | 8000 | Interface web `/`, endpoints `/ask`, `/metrics`, `/health` |
 | `qdrant` | qdrant/qdrant:v1.9.2 | 6333 / 6334 | Vector store |
 | `ollama` | ollama/ollama | 11434 | LLM local (llama3.2) |
 
@@ -79,9 +79,15 @@ INFO: Uvicorn running on http://0.0.0.0:8000
 
 ## Utilisation
 
+### Interface web (recommandé)
+
+Ouvrir [http://localhost:8000](http://localhost:8000) dans le navigateur.
+
+L'interface permet de poser des questions en langage naturel et d'afficher les réponses avec leurs sources, la latence et le nombre de tokens — sans curl ni Swagger.
+
 ### Swagger UI
 
-Ouvrir [http://localhost:8000/docs](http://localhost:8000/docs) dans le navigateur.
+Ouvrir [http://localhost:8000/docs](http://localhost:8000/docs) dans le navigateur pour explorer l'API REST.
 
 ### Via curl
 
@@ -124,8 +130,10 @@ tp-equipe-1j/
 │   ├── store.py         # Abstraction QdrantStore (init, upsert, search)
 │   ├── retrieve.py      # R3 — Encode la question, top-k, seuil de refus
 │   ├── generate.py      # R3 — Appel LLM (Ollama / Groq / Gemini)
-│   ├── api.py           # R3 — Endpoints FastAPI
+│   ├── api.py           # R3 — Endpoints FastAPI (+ route GET / pour l'UI)
 │   └── metrics.py       # R4 — Collecte latence, scores, tokens, coût
+├── static/
+│   └── index.html       # Interface web de chat (HTML/CSS/JS, auto-contenu)
 ├── corpus/
 │   ├── seed/            # Documents sources (HTML)
 │   └── chunks.jsonl     # Généré automatiquement par ingest.py

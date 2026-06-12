@@ -134,13 +134,14 @@ flowchart LR
 <li><strong>LLM</strong> : Ollama (llama3.2, déployé localement via Docker) ou Groq (llama-3.3-70b-versatile, cloud) génère la réponse</li>
 <li><strong>Réponse</strong> : retournée avec les sources citées (nom de fichier source + chunk_index)</li>
 <li><strong>Métriques</strong> : chaque requête est enregistrée (score, latence ms, tokens, refus/répondu) via <code>app/metrics.py</code>, consultable sur <code>GET /metrics</code></li>
+<li><strong>Interface web</strong> : <code>GET /</code> sert <code>static/index.html</code>, une interface de chat permettant de poser des questions directement dans le navigateur — affiche la réponse, les sources citées, la latence et les tokens, sans passer par curl ou Swagger</li>
 </ol>
 <p><strong>Seuil de similarité retenu : 0.30</strong> (configurable via <code>SIMILARITY_THRESHOLD</code> dans <code>.env</code>).</p>
 
 <h2 id="5-structure-du-projet">5. Structure du projet</h2>
 <pre><code>tp_equipe_1j/
 ├── app/
-│   ├── api.py           # R3 — Endpoint FastAPI POST /ask et GET /metrics
+│   ├── api.py           # R3 — Endpoint FastAPI POST /ask, GET /metrics, GET / (UI)
 │   ├── config.py        # Configuration Pydantic (toutes les vars d'env)
 │   ├── ingest.py        # R1 — Extraction texte (PDF/HTML/JSON/TXT) + découpage RecursiveCharacterTextSplitter
 │   ├── embed.py         # R2 — Génération des embeddings (sentence-transformers)
@@ -148,6 +149,8 @@ flowchart LR
 │   ├── retrieve.py      # R3 — Recherche sémantique + filtrage par seuil de similarité
 │   ├── generate.py      # R3 — Génération de réponse LLM (Ollama / Groq / Gemini)
 │   └── metrics.py       # R4 — Collecte métriques en mémoire (latence, tokens, coût, refus)
+├── static/
+│   └── index.html       # Interface web de chat (HTML/CSS/JS auto-contenu, servi par GET /)
 ├── corpus/
 │   ├── seed/            # 7 documents de référence committés (HTML : RGPD, incidents IA, Qdrant…)
 │   ├── raw/             # Corpus téléchargé via fetch_corpus (ignoré par .gitignore)
@@ -273,6 +276,7 @@ flowchart LR
 <li><strong>Corpus restreint</strong> : les 7 fichiers seed couvrent un périmètre limité. Un crawling data.gouv.fr plus large améliorerait la couverture et la diversité des réponses.</li>
 <li><strong>Chargement du modèle d'embedding au démarrage</strong> : all-MiniLM-L6-v2 (~90 Mo) est chargé en mémoire à chaque démarrage de l'API, ce qui allonge le <code>start_period</code>. Un service d'embedding séparé ou mis en cache persisterait mieux.</li>
 <li><strong>Pas de streaming LLM</strong> : la réponse est attendue en totalité avant envoi, ce qui augmente la latence perçue. L'ajout de SSE (Server-Sent Events) améliorerait l'expérience utilisateur.</li>
+<li><strong>UX initiale limitée au curl / Swagger</strong> : l'API n'exposait pas d'interface visuelle. Résolu en ajoutant <code>static/index.html</code> (interface de chat HTML/CSS/JS auto-contenue) servie par <code>GET /</code> via FastAPI <code>StaticFiles</code> + <code>FileResponse</code> — le Dockerfile a été mis à jour pour inclure le dossier <code>static/</code> dans l'image.</li>
 </ul>
 
 <hr />
