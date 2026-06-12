@@ -3,29 +3,31 @@
 Système de recherche documentaire basé sur un pipeline **RAG** (Retrieval-Augmented Generation).  
 L'utilisateur pose une question en langage naturel, le système recherche les passages pertinents dans un corpus de documents et génère une réponse citée, sans hallucination.
 
+**Projet :** A — AssistKB Search (vector store Qdrant)
+
 **Équipe :** RAGUIN Hugo · TALEB Amine
+
+| Rôle | Membre | Fichiers |
+|------|--------|----------|
+| R1 — Data / Ingestion | Amine Taleb | `app/ingest.py` |
+| R2 — Embeddings / Index | Amine Taleb | `app/embed.py`, `app/store.py` |
+| R3 — Retrieval / LLM | Hugo Raguin | `app/retrieve.py`, `app/generate.py`, `app/api.py` |
+| R4 — DevOps / Observabilité | Hugo Raguin | `docker-compose.yml`, `app/metrics.py`, `.github/` |
 
 ---
 
 ## Architecture
 
-```
-Question
-   │
-   ▼
-[Embedding local]          all-MiniLM-L6-v2 (384 dims, sentence-transformers)
-   │
-   ▼
-[Qdrant — top-k=5]         Recherche par similarité cosinus dans le vector store
-   │
-   ▼
-[Seuil similarité]         score < 0.30 → refus (anti-hallucination)
-   │
-   ▼
-[LLM Ollama llama3.2]      Génération de la réponse avec citations sources
-   │
-   ▼
-Réponse + sources + métriques
+```mermaid
+flowchart LR
+    user["Utilisateur"] -->|"POST /ask"| api["API FastAPI\n:8000"]
+    api -->|"embed(question)"| embed["all-MiniLM-L6-v2\n(sentence-transformers)"]
+    embed -->|"vecteur 384d"| qdrant["Qdrant\n:6333\ncollection: assistkb"]
+    qdrant -->|"top-5 chunks + scores"| seuil{"Score ≥ seuil\n(0.30) ?"}
+    seuil -->|"non"| refus["Réponse de refus\n(hors corpus)"]
+    seuil -->|"oui"| llm["LLM\nOllama llama3.2\nou Groq llama-3.3-70b"]
+    llm -->|"réponse + sources citées"| api
+    api -->|"record_request()"| metrics["Métriques\nGET /metrics"]
 ```
 
 | Service | Image | Port | Rôle |
@@ -154,7 +156,20 @@ Toutes les variables sont dans `.env` :
 | `CHUNK_SIZE` | `800` | Taille des chunks en caractères |
 | `CHUNK_OVERLAP` | `120` | Chevauchement entre chunks |
 | `TOP_K` | `5` | Nombre de chunks récupérés par requête |
-| `SIMILARITY_THRESHOLD` | `0.30` | Score minimum pour ne pas refuser |
+| `SIMILARITY_THRESHOLD` | `0.30` | Score minimum pour ne pas refuser (voir tableau ci-dessous) |
+
+### Choix du seuil de similarité
+
+Le `SIMILARITY_THRESHOLD` est le paramètre clé de l'anti-hallucination. Si le meilleur chunk retourné par Qdrant obtient un score inférieur à ce seuil, le système refuse de répondre plutôt que de risquer d'inventer.
+
+Nous avons retenu **0.30** comme valeur d'équilibre : suffisamment bas pour accepter les questions légitimement couvertes par le corpus, suffisamment haut pour bloquer les questions hors-sujet avant qu'elles n'atteignent le LLM.
+
+| Seuil | Comportement |
+|-------|-------------|
+| `0.50+` | Très restrictif — refuse beaucoup, mais les réponses données sont très fiables |
+| **`0.30`** | **Equilibré — valeur retenue dans ce projet** |
+| `0.20` | Permissif — répond plus souvent, plus de risque de hors-sujet |
+| `0.10` | Répond à presque tout avec des chunks non pertinents → hallucinations garanties |
 
 ### Utiliser Groq à la place d'Ollama
 
